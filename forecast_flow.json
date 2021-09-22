@@ -1,0 +1,265 @@
+{
+  "Defaults" : {
+	"Host" : "rng"
+  },
+  "ASPS-Forecast-Flow" : {
+    "Type" : "Folder",
+    "Variables" : [ {
+      "asps_appid" : "481be8b9210a09cc3a3bcdcf190a3aa8"
+    }, {
+      "asps_zipcode" : "68116"
+    }, {
+      "asps_email" : "your_email@here.com"
+    } ],
+    "RunAs" : "controlm",
+    "ControlmServer" : "IN01",
+    "SubApplication" : "Forecast-Flow",
+    "CreatedBy" : "asps",
+    "Description" : "1) Install WGET and JQ are installed on Agent.\\n2) Update variables",
+    "OrderMethod" : "Automatic",
+    "Application" : "ASPS-Forecast",
+    "When" : {
+      "RuleBasedCalendars" : {
+        "Included" : [ "EVERYDAY" ],
+        "EVERYDAY" : {
+          "Type" : "Calendar:RuleBased",
+          "When" : {
+            "DaysRelation" : "OR",
+            "WeekDays" : [ "NONE" ],
+            "MonthDays" : [ "ALL" ]
+          }
+        }
+      }
+    },
+    "asps_forecast-flow-sla" : {
+      "Type" : "Job:SLAManagement",
+      "ServiceName" : "asps_forecast-flow-sla",
+      "ServicePriority" : "3",
+      "SubApplication" : "Forecast-Flow",
+      "JobRunsDeviationsTolerance" : "3",
+      "CreatedBy" : "asps",
+      "RunAs" : "controlm",
+      "Application" : "ASPS-Forecast",
+      "CompleteIn" : {
+        "Time" : "0:5"
+      },
+      "When" : {
+        "WeekDays" : [ "NONE" ],
+        "Months" : [ "NONE" ],
+        "MonthDays" : [ "NONE" ],
+        "DaysRelation" : "OR"
+      },
+      "eventsToWaitFor" : {
+        "Type" : "WaitForEvents",
+        "Events" : [ {
+          "Event" : "asps_getoutput-TO-asps_forecast-flow-sla"
+        } ]
+      },
+      "eventsToDelete" : {
+        "Type" : "DeleteEvents",
+        "Events" : [ {
+          "Event" : "asps_getoutput-TO-asps_forecast-flow-sla"
+        } ]
+      }
+    },
+    "asps_getoutput" : {
+      "Type" : "Job:Command",
+      "SubApplication" : "Forecast-Flow",
+      "CreatedBy" : "asps",
+      "RunAs" : "controlm",
+      "Application" : "ASPS-Forecast",
+      "Command" : "echo \\\"Today, the high temperature in %%aspscity %%aspscountry is %%aspshightemp F.\\\"",
+      "When" : {
+        "WeekDays" : [ "NONE" ],
+        "Months" : [ "NONE" ],
+        "MonthDays" : [ "NONE" ],
+        "DaysRelation" : "OR"
+      },
+      "IfBase:Folder:CompletionStatus_0" : {
+        "Type" : "If:CompletionStatus",
+        "CompletionStatus" : "OK",
+        "Mail_0" : {
+          "Type" : "Action:Mail",
+          "Subject" : "Today's High Temperature",
+          "To" : "%%asps_email",
+          "Message" : "Today, the high temperature in %%aspscity %%aspscountry is %%aspshightemp F."
+        }
+      },
+      "eventsToWaitFor" : {
+        "Type" : "WaitForEvents",
+        "Events" : [ {
+          "Event" : "aspscountryvar-TO-asps_getoutput"
+        }, {
+          "Event" : "aspscountryvar-TO-asps_getoutput"
+        }, {
+          "Event" : "asps_hightempvar-TO-asps_getoutput"
+        } ]
+      },
+      "eventsToAdd" : {
+        "Type" : "AddEvents",
+        "Events" : [ {
+          "Event" : "asps_getOutput-TO-asps_SLA"
+        }, {
+          "Event" : "asps_getoutput-TO-asps_forecast-flow-sla"
+        } ]
+      },
+      "eventsToDelete" : {
+        "Type" : "DeleteEvents",
+        "Events" : [ {
+          "Event" : "aspscityvar-TO-asps_getoutput"
+        }, {
+          "Event" : "aspscountryvar-TO-asps_getoutput"
+        }, {
+          "Event" : "asps_hightempvar-TO-asps_getoutput"
+        } ]
+      }
+    },
+    "asps_getweatherdata" : {
+      "Type" : "Job:Command",
+      "SubApplication" : "Forecast-Flow",
+      "CreatedBy" : "asps",
+      "RunAs" : "controlm",
+      "Application" : "ASPS-Forecast",
+      "Command" : "wget \"https://api.openweathermap.org/data/2.5/weather?zip=%%asps_zipcode,us&appid=%%asps_appid&units=imperial\" -O $HOME/output.json",
+      "When" : {
+        "WeekDays" : [ "NONE" ],
+        "Months" : [ "NONE" ],
+        "MonthDays" : [ "NONE" ],
+        "DaysRelation" : "OR"
+      },
+      "eventsToAdd" : {
+        "Type" : "AddEvents",
+        "Events" : [ {
+          "Event" : "asps_getweatherdata-TO-aspscountryvar"
+        }, {
+          "Event" : "asps_getweatherdata-TO-aspscityvar"
+        }, {
+          "Event" : "asps_getweatherdata-TO-asps_hightempvar"
+        } ]
+      }
+    },
+    "asps_hightempvar" : {
+      "Type" : "Job:Command",
+      "SubApplication" : "Forecast-Flow",
+      "CreatedBy" : "asps",
+      "RunAs" : "controlm",
+      "Application" : "ASPS-Forecast",
+      "Command" : "cd $HOME/ && high_temp=$(cat output.json | jq \".main.temp_max\") | echo \"$high_temp\"",
+      "When" : {
+        "WeekDays" : [ "NONE" ],
+        "Months" : [ "NONE" ],
+        "MonthDays" : [ "NONE" ],
+        "DaysRelation" : "OR"
+      },
+      "CaptureOutput_0" : {
+        "Type" : "Action:CaptureOutput",
+        "Capture" : "UpToEndOfLine",
+        "Search" : "high_temp=",
+        "VariableName" : "\\\\aspshightemp",
+        "ForwardBy" : {
+          "ColumnsOption" : "Characters"
+        }
+      },
+      "eventsToWaitFor" : {
+        "Type" : "WaitForEvents",
+        "Events" : [ {
+          "Event" : "asps_getweatherdata-TO-asps_hightempvar"
+        } ]
+      },
+      "eventsToAdd" : {
+        "Type" : "AddEvents",
+        "Events" : [ {
+          "Event" : "asps_hightempvar-TO-asps_getoutput"
+        } ]
+      },
+      "eventsToDelete" : {
+        "Type" : "DeleteEvents",
+        "Events" : [ {
+          "Event" : "asps_getweatherdata-TO-asps_hightempvar"
+        } ]
+      }
+    },
+    "aspscityvar" : {
+      "Type" : "Job:Command",
+      "SubApplication" : "Forecast-Flow",
+      "CreatedBy" : "asps",
+      "RunAs" : "controlm",
+      "Application" : "ASPS-Forecast",
+      "Command" : "cd $HOME/ && city=$(cat output.json | jq -r \".name\") | echo \"$city\"",
+      "When" : {
+        "WeekDays" : [ "NONE" ],
+        "Months" : [ "NONE" ],
+        "MonthDays" : [ "NONE" ],
+        "DaysRelation" : "OR"
+      },
+      "CaptureOutput_0" : {
+        "Type" : "Action:CaptureOutput",
+        "Capture" : "UpToEndOfLine",
+        "Search" : "city=",
+        "VariableName" : "\\\\aspscity",
+        "ForwardBy" : {
+          "ColumnsOption" : "Characters"
+        }
+      },
+      "eventsToWaitFor" : {
+        "Type" : "WaitForEvents",
+        "Events" : [ {
+          "Event" : "asps_getweatherdata-TO-aspscityvar"
+        } ]
+      },
+      "eventsToAdd" : {
+        "Type" : "AddEvents",
+        "Events" : [ {
+          "Event" : "aspscityvar-TO-asps_getoutput"
+        } ]
+      },
+      "eventsToDelete" : {
+        "Type" : "DeleteEvents",
+        "Events" : [ {
+          "Event" : "asps_getweatherdata-TO-aspscityvar"
+        } ]
+      }
+    },
+    "aspscountryvar" : {
+      "Type" : "Job:Command",
+      "SubApplication" : "Forecast-Flow",
+      "CreatedBy" : "asps",
+      "RunAs" : "controlm",
+      "Application" : "ASPS-Forecast",
+      "Command" : "cd $HOME/ && country=$(cat output.json | jq -r \".sys.country\") | echo \"$country\"",
+      "When" : {
+        "WeekDays" : [ "NONE" ],
+        "Months" : [ "NONE" ],
+        "MonthDays" : [ "NONE" ],
+        "DaysRelation" : "OR"
+      },
+      "CaptureOutput_0" : {
+        "Type" : "Action:CaptureOutput",
+        "Capture" : "UpToEndOfLine",
+        "Search" : "country=",
+        "VariableName" : "\\\\aspscountry",
+        "ForwardBy" : {
+          "ColumnsOption" : "Characters"
+        }
+      },
+      "eventsToWaitFor" : {
+        "Type" : "WaitForEvents",
+        "Events" : [ {
+          "Event" : "asps_getweatherdata-TO-aspscountryvar"
+        } ]
+      },
+      "eventsToAdd" : {
+        "Type" : "AddEvents",
+        "Events" : [ {
+          "Event" : "aspscountryvar-TO-asps_getoutput"
+        } ]
+      },
+      "eventsToDelete" : {
+        "Type" : "DeleteEvents",
+        "Events" : [ {
+          "Event" : "asps_getweatherdata-TO-aspscountryvar"
+        } ]
+      }
+    }
+  }
+}
