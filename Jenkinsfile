@@ -20,7 +20,7 @@ pipeline {
        stage('Deploy_Workflow') {
          steps {
              echo "Applying Deploy Descriptor Transform and Running Workflow"
-               sh '/usr/local/bin/ctm run forecast_floww.json -e sandbox'
+               sh '/usr/local/bin/ctm run forecast_flow.json -e sandbox'
                echo "Worklow Run Complete"
          }
        }
