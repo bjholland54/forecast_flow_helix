@@ -4,7 +4,7 @@
   },
   "ASPS-Forecast-Flow" : {
     "Type" : "Folder",
-    "SiteStandard": "DFE_SiteStd",
+    "SiteStandard": "BCO_Site_Standard",
     "Variables" : [ {
       "asps_appid" : "481be8b9210a09cc3a3bcdcf190a3aa8"
     }, {
